@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DesignPro V2</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#09090f;color:#fff;font-family:Arial,sans-serif}
+.app{max-width:480px;margin:auto;min-height:100vh;background:#11111a}
+header{height:58px;background:#181824;border-bottom:1px solid #2b2b3b;display:flex;align-items:center;justify-content:space-between;padding:0 12px;position:sticky;top:0;z-index:10}
+.logo{font-size:19px;font-weight:800}.logo b{color:#8c5cff}button{border:0;color:#fff;background:#27273a;border-radius:10px;padding:10px 12px;font-size:13px}
+main{padding:14px 12px 125px}.canvasBox{display:flex;justify-content:center;margin:8px 0 14px}
+canvas{width:min(92vw,430px);height:auto;border-radius:9px;background:#fff;box-shadow:0 15px 45px #0009;touch-action:none}
+.card{background:#191925;border:1px solid #2b2b3b;border-radius:15px;padding:12px;margin:10px 0}
+h3{font-size:15px;margin:0 0 10px}.row{display:flex;gap:8px;overflow:auto}.row button{white-space:nowrap}
+.primary{background:linear-gradient(135deg,#7b4dff,#4a91ff)}.danger{background:#5a2932}
+.field{display:flex;align-items:center;gap:8px;margin:8px 0}.field input[type=text]{flex:1;background:#252538;border:1px solid #38384d;border-radius:9px;padding:10px;color:white}
+input[type=color]{width:44px;height:38px;border:0;background:none}.hint{font-size:11px;color:#aaa;line-height:1.4}
+.templates{display:flex;gap:8px;overflow:auto}.tpl{min-width:92px;height:70px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer}
+.t1{background:linear-gradient(135deg,#7c4dff,#12121b)}.t2{background:linear-gradient(135deg,#ff5f6d,#ffc371)}.t3{background:linear-gradient(135deg,#00c6ff,#0072ff)}.t4{background:linear-gradient(135deg,#111,#555)}
+.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(480px,100%);background:#181824;border-top:1px solid #2b2b3b;padding:9px 10px calc(9px + env(safe-area-inset-bottom));z-index:20}
+.bottom .row{justify-content:space-between}.bottom button{min-width:58px;font-size:11px}
+.modal{display:none;position:fixed;inset:0;background:#000b;z-index:30;align-items:flex-end}.modal.show{display:flex}.sheet{background:#181824;width:100%;max-width:480px;margin:auto;border-radius:20px 20px 0 0;padding:18px}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<button onclick="location.reload()">⌂</button>
+<div class="logo">Design<b>Pro</b> <small>V2</small></div>
+<button onclick="save()">💾</button>
+</header>
+<main>
+<div class="canvasBox"><canvas id="c" width="1080" height="1080"></canvas></div>
+
+<section class="card">
+<h3>Templates</h3>
+<div class="templates">
+<div class="tpl t1" onclick="template(1)">NEON</div>
+<div class="tpl t2" onclick="template(2)">EVENTO</div>
+<div class="tpl t3" onclick="template(3)">AZUL</div>
+<div class="tpl t4" onclick="template(4)">DARK</div>
+</div>
+</section>
+
+<section class="card">
+<h3>Adicionar</h3>
+<div class="row">
+<button onclick="addText()">✍️ Texto</button>
+<button onclick="addRect()">▰ Forma</button>
+<button onclick="addCircle()">● Círculo</button>
+<button onclick="openUpload()">📷 Foto</button>
+</div>
+</section>
+
+<section class="card">
+<h3>Elemento selecionado</h3>
+<div class="field"><input id="txt" type="text" placeholder="Digite o texto" oninput="editText(this.value)"><input id="color" type="color" value="#7c4dff" onchange="editColor(this.value)"></div>
+<div class="row">
+<button onclick="duplicate()">⧉ Duplicar</button><button onclick="front()">⬆ Frente</button><button onclick="back()">⬇ Trás</button><button class="danger" onclick="remove()">🗑 Excluir</button>
+</div>
+<div class="hint">Toque para selecionar. Arraste para mover. Use os botões para editar.</div>
+</section>
+
+<section class="card">
+<h3>Fundo</h3>
+<div class="field">Cor <input id="bg" type="color" value="#ffffff" onchange="background(this.value)"></div>
+<div class="row"><button onclick="undo()">↶ Desfazer</button><button onclick="redo()">↷ Refazer</button><button class="primary" onclick="exportPNG()">⬇ PNG</button></div>
+</section>
+</main>
+
+<div class="bottom"><div class="row">
+<button onclick="addText()">✍️<br>Texto</button>
+<button onclick="openUpload()">📷<br>Foto</button>
+<button onclick="addRect()">▰<br>Forma</button>
+<button onclick="duplicate()">⧉<br>Copiar</button>
+<button class="primary" onclick="exportPNG()">⬇<br>Exportar</button>
+</div></div>
+
+<div class="modal" id="modal"><div class="sheet">
+<h3>Adicionar foto</h3>
+<label><button class="primary" onclick="document.getElementById('file').click()">📷 Escolher da galeria</button></label>
+<input id="file" type="file" accept="image/*" onchange="photo(this.files[0])">
+<br><br><button onclick="closeUpload()">Cancelar</button>
+</div></div>
+</div>
+
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let bg='#fff',items=[],sel=null,drag=null,U=[],R=[];
+function snap(){U.push(JSON.stringify({bg,items}));if(U.length>30)U.shift();R=[]}
+function draw(){
+ctx.clearRect(0,0,1080,1080);ctx.fillStyle=bg;ctx.fillRect(0,0,1080,1080);
+items.forEach(e=>{ctx.save();ctx.translate(e.x,e.y);ctx.rotate(e.r||0);
+if(e.type==='text'){ctx.font=`${e.bold?'800':'600'} ${e.size}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=e.color;ctx.fillText(e.text,0,0)}
+if(e.type==='rect'){ctx.fillStyle=e.color;ctx.fillRect(-e.w/2,-e.h/2,e.w,e.h)}
+if(e.type==='circle'){ctx.fillStyle=e.color;ctx.beginPath();ctx.arc(0,0,e.w/2,0,7);ctx.fill()}
+if(e.type==='img'&&e.img){ctx.drawImage(e.img,-e.w/2,-e.h/2,e.w,e.h)}
+if(e===sel){ctx.strokeStyle='#00d9ff';ctx.lineWidth=5;ctx.setLineDash([12,8]);ctx.strokeRect(-e.w/2-8,-e.h/2-8,e.w+16,e.h+16);ctx.setLineDash([])}
+ctx.restore()});
+}
+function point(ev){let r=c.getBoundingClientRect();return{x:(ev.clientX-r.left)*1080/r.width,y:(ev.clientY-r.top)*1080/r.height}}
+function hit(p,e){return p.x>=e.x-e.w/2&&p.x<=e.x+e.w/2&&p.y>=e.y-e.h/2&&p.y<=e.y+e.h/2}
+c.addEventListener('pointerdown',e=>{let p=point(e);sel=[...items].reverse().find(x=>hit(p,x))||null;if(sel){snap();drag={dx:p.x-sel.x,dy:p.y-sel.y};c.setPointerCapture(e.pointerId)}sync();draw()});
+c.addEventListener('pointermove',e=>{if(sel&&drag){let p=point(e);sel.x=p.x-drag.dx;sel.y=p.y-drag.dy;draw()}});
+c.addEventListener('pointerup',()=>drag=null);
+function addText(){snap();sel={type:'text',text:'Seu texto',x:540,y:540,w:420,h:100,size:72,color:'#7c4dff',bold:true};items.push(sel);sync();draw()}
+function addRect(){snap();sel={type:'rect',x:540,y:540,w:380,h:220,color:'#7c4dff',h:220};items.push(sel);sync();draw()}
+function addCircle(){snap();sel={type:'circle',x:540,y:540,w:250,h:250,color:'#35a7ff'};items.push(sel);sync();draw()}
+function editText(v){if(sel?.type==='text'){sel.text=v;draw()}}
+function editColor(v){if(sel){snap();sel.color=v;draw()}}
+function background(v){snap();bg=v;draw()}
+function remove(){if(!sel)return;snap();items=items.filter(x=>x!==sel);sel=null;sync();draw()}
+function duplicate(){if(!sel)return;snap();sel={...sel,x:sel.x+35,y:sel.y+35};items.push(sel);sync();draw()}
+function front(){if(!sel)return;snap();let i=items.indexOf(sel);items.splice(i,1);items.push(sel);draw()}
+function back(){if(!sel)return;snap();let i=items.indexOf(sel);items.splice(i,1);items.unshift(sel);draw()}
+function sync(){document.getElementById('txt').value=sel?.type==='text'?sel.text:'';document.getElementById('color').value=sel?.color||'#7c4dff'}
+function undo(){if(!U.length)return;R.push(JSON.stringify({bg,items}));let x=JSON.parse(U.pop());bg=x.bg;items=x.items;sel=null;draw();sync()}
+function redo(){if(!R.length)return;U.push(JSON.stringify({bg,items}));let x=JSON.parse(R.pop());bg=x.bg;items=x.items;sel=null;draw();sync()}
+function save(){localStorage.setItem('dpv2',JSON.stringify({bg,items}));alert('Projeto salvo no celular!')}
+function load(){let x=localStorage.getItem('dpv2');if(x){x=JSON.parse(x);bg=x.bg;items=x.items;items.forEach(e=>{if(e.type==='img')e.img=null})}draw()}
+function exportPNG(){let old=sel;sel=null;draw();let a=document.createElement('a');a.download='DesignPro_V2.png';a.href=c.toDataURL('image/png');a.click();sel=old;draw()}
+function openUpload(){document.getElementById('modal').classList.add('show')}
+function closeUpload(){document.getElementById('modal').classList.remove('show')}
+function photo(file){if(!file)return;let im=new Image();im.onload=()=>{snap();let ratio=im.width/im.height,w=520,h=w/ratio;if(h>520){h=520;w=h*ratio}sel={type:'img',img:im,x:540,y:540,w,h};items.push(sel);closeUpload();draw()};im.src=URL.createObjectURL(file)}
+function template(n){snap();items=[];sel=null;
+if(n===1){bg='#10101a';items.push({type:'text',text:'DESIGNPRO',x:540,y:430,w:650,h:100,size:86,color:'#fff',bold:true},{type:'text',text:'CRIATIVIDADE SEM LIMITES',x:540,y:570,w:700,h:70,size:42,color:'#9b75ff',bold:true},{type:'circle',x:540,y:780,w:260,h:260,color:'#7c4dff'})}
+if(n===2){bg='#ff6b6b';items.push({type:'text',text:'SEU EVENTO',x:540,y:420,w:700,h:100,size:90,color:'#fff',bold:true},{type:'rect',x:540,y:610,w:760,h:8,color:'#fff'},{type:'text',text:'2026 • AO VIVO',x:540,y:730,w:600,h:70,size:46,color:'#fff',bold:true})}
+if(n===3){bg='#087cff';items.push({type:'text',text:'NOVIDADE',x:540,y:420,w:650,h:100,size:92,color:'#fff',bold:true},{type:'circle',x:540,y:700,w:300,h:300,color:'#7ce8ff'})}
+if(n===4){bg='#171717';items.push({type:'rect',x:540,y:390,w:760,h:20,color:'#fff'},{type:'text',text:'DARK',x:540,y:570,w:650,h:120,size:120,color:'#fff',bold:true},{type:'text',text:'DESIGNPRO',x:540,y:720,w:600,h:70,size:50,color:'#aaa',bold:true})}
+draw();sync()}
+load();
+</script>
+</body>
+</html>
